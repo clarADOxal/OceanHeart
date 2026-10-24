@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Global Threat Monitor - V0.17.6</title>
+    <style>
+        :root {
+            --primary: #0a0a0c;
+            --accent: #8b0000;
+            --bg: #121214;
+            --card-bg: #1c1c1e;
+            --text: #e1e1e1;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+            margin: 20px;
+            background-color: var(--bg);
+            color: var(--text);
+            font-size: 13px; /* Taille de texte réduite */
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: auto;
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border: 1px solid #333;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid var(--accent);
+            padding-bottom: 15px;
+            margin-bottom: 20px;
+        }
+
+        .logo-area { display: flex; align-items: center; }
+
+        h1 {
+            color: #fff;
+            margin: 0;
+            font-size: 1.5em;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        .status-bar {
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.85em;
+            font-weight: bold;
+            margin-bottom: 15px;
+            border: 1px solid #333;
+        }
+
+        .loading { background: #2c1a1a; color: #ff9999; }
+        .success { background: #1a2c1a; color: #99ff99; }
+
+        .search-area {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            background: #252528;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #333;
+        }
+
+        input {
+            padding: 10px;
+            border: 1px solid #444;
+            border-radius: 6px;
+            font-size: 12px;
+            width: 100%;
+            box-sizing: border-box;
+            background: #121214;
+            color: white;
+            outline: none;
+        }
+
+        .filter-options {
+            grid-column: span 4;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.85em;
+            color: #ccc;
+        }
+
+        .groups-list {
+            font-size: 0.8em;
+            color: #aaa;
+            margin-top: 5px;
+            grid-column: span 4;
+            border-top: 1px solid #333;
+            padding-top: 10px;
+        }
+
+        .group-tag {
+            display: inline-flex;
+            align-items: center;
+            background: #0a0a0c;
+            border: 1px solid #444;
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin-right: 5px;
+            cursor: pointer;
+            gap: 5px;
+        }
+
+        .group-tag.active {
+            background: var(--accent);
+            border-color: #ff4d4d;
+            color: white;
+        }
+
+        .action-buttons { display: flex; gap: 8px; }
+
+        button {
+            padding: 8px 14px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            color: white;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+        }
+
+        button:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        .btn-refresh { background: #444; }
+        .btn-copy { background: #0056b3; }
+        .btn-csv { background: #28a745; }
+        .btn-map { background: #5b2c6f; }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: #0a0a0c;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            border-left: 3px solid var(--accent);
+        }
+
+        .card span {
+            display: block;
+            font-size: 1.3em;
+            font-weight: bold;
+            color: var(--accent);
+        }
+
+        .table-scroll {
+            max-height: 450px;
+            overflow-y: auto;
+            border: 1px solid #333;
+            border-radius: 8px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #252528;
+            font-size: 0.85em;
+        }
+
+        th, td { padding: 10px; border: 1px solid #333; text-align: left; }
+        th { background: #121214; color: var(--accent); position: sticky; top: 0; z-index: 10; }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0; top: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85);
+        }
+
+        .modal-content {
+            background: #252528;
+            margin: 2% auto;
+            padding: 25px;
+            border: 1px solid var(--accent);
+            width: 60%;
+            border-radius: 12px;
+        }
+
+        .map-instructions {
+            background: #1a1a1c;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 15px;
+            border-left: 4px solid #5b2c6f;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+
+        textarea {
+            width: 100%;
+            height: 150px;
+            background: #0a0a0c;
+            color: #99ff99;
+            border: 1px solid #444;
+            font-family: monospace;
+            padding: 10px;
+            font-size: 11px;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <div class="logo-area">
+            <img src="TON_LOGO_ICI" alt="Logo" style="height:35px; margin-right:12px;">
+            <h1>Global Threat Monitor V0.17.6</h1>
+        </div>
+        <div class="action-buttons">
+            <button class="btn-refresh" id="btnRefresh" onclick="fetchData()">🔄 Actualiser</button>
+            <button class="btn-copy" id="btnCopy" onclick="copyTableToClipboard()" disabled>📋 Copier</button>
+            <button class="btn-csv" id="btnCsv" onclick="exportToCSV()" disabled>📥 CSV</button>
+            <button class="btn-map" id="btnMap" onclick="openMapModal()" disabled>🗺️ Map</button>
+        </div>
+    </header>
+
+    <div id="status" class="status-bar loading">Initialisation...</div>
+
+    <div class="search-area">
+        <input type="text" id="groupFilter" placeholder="Groupe...">
+        <input type="text" id="victimFilter" placeholder="Victime...">
+        <input type="text" id="countryFilter" placeholder="Pays...">
+        <input type="text" id="activityFilter" placeholder="Secteur...">
+        
+        <div class="filter-options">
+            <input type="checkbox" id="includeUnknown" style="width:auto; cursor:pointer;">
+            <label for="includeUnknown" style="cursor:pointer;">Inclure les inconnus (-)</label>
+        </div>
+        <div id="groupFoundText" class="groups-list"></div>
+    </div>
+
+    <div class="stats-grid">
+        <div class="card">Nombre de cibles <span id="count">0</span></div>
+        <div class="card">Première trace <span id="firstDate">-</span></div>
+        <div class="card">Dernière activité <span id="lastDate">-</span></div>
+    </div>
+
+    <div class="table-scroll">
+        <table id="fullVictimsTable">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Groupe</th>
+                    <th>Victime</th>
+                    <th>Pays</th>
+                    <th>Activité</th>
+                </tr>
+            </thead>
+            <tbody id="fullVictimsBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<div id="mapModal" class="modal">
+    <div class="modal-content">
+        <h2 style="color:var(--accent); margin-top:0; font-size: 1.4em;">🗺️ Générer votre carte mondiale</h2>
+        <div class="map-instructions">
+            <strong>Procédure à suivre sur MapChart.net :</strong>
+            <ol>
+                <li>Cliquez sur le bouton <strong>"📋 Copier le code"</strong> en bas de cette fenêtre.</li>
+                <li>Ouvrez le site <a href="https://www.mapchart.net/world.html" target="_blank" style="color:#ff4d4d;">MapChart.net (World Map)</a>.</li>
+                <li>Dans la colonne de gauche, cherchez l'icône de dossier nommée <strong>"Save - Upload"</strong>.</li>
+                <li>Cliquez sur le bouton <strong>"Upload Map Configuration"</strong>.</li>
+                <li>Collez le code et validez.</li>
+            </ol>
+        </div>
+        <textarea id="mapJsonArea" readonly></textarea>
+        <div style="display:flex; gap:10px; justify-content: flex-end;">
+            <button onclick="closeMapModal()" style="background:#444">Fermer</button>
+            <button onclick="copyMapJson()" style="background:var(--accent)">📋 Copier le code</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let allVictims = [];
+    let filteredData = [];
+
+    const isoToMapChart = { "AF": "Afghanistan", "AL": "Albania", "DZ": "Algeria", "AR": "Argentina", "AU": "Australia", "AT": "Austria", "BE": "Belgium", "BR": "Brazil", "CA": "Canada", "CN": "China", "FR": "France", "DE": "Germany", "IN": "India", "IT": "Italy", "JP": "Japan", "MX": "Mexico", "NL": "Netherlands", "RU": "Russian Federation", "ES": "Spain", "CH": "Switzerland", "GB": "United Kingdom", "US": "United States" };
+
+    function formatDate(d) {
+        if(!d || d==="-") return "-";
+        try {
+            const dt = new Date(d);
+            return `${String(dt.getDate()).padStart(2,'0')}/${String(dt.getMonth()+1).padStart(2,'0')}/${dt.getFullYear()}`;
+        } catch(e) { return "-"; }
+    }
+
+    async function fetchData() {
+        const s = document.getElementById('status');
+        const btn = document.getElementById('btnRefresh');
+        btn.disabled = true;
+        s.innerText = "🔄 Synchronisation des données multi-années...";
+
+        try {
+            const currentYear = new Date().getFullYear();
+            const years = [];
+            for (let y = currentYear; y >= 2021; y--) years.push(y);
+            
+            // Suppression du cache-busting pour retrouver la vitesse d'origine
+            const urls = years.map(y => `https://data.ransomware.live/${y}-victims.json`);
+            
+            const results = await Promise.all(urls.map(url => 
+                fetch(url).then(res => res.ok ? res.json() : []).catch(() => [])
+            ));
+            
+            allVictims = results.flat();
+            s.innerText = `✅ Base consolidée : ${allVictims.length} entrées.`;
+            s.className = "status-bar success";
+            runFilter();
+        } catch (e) {
+            s.innerText = "❌ Erreur lors de la récupération.";
+        } finally {
+            btn.disabled = false;
+        }
+    }
+
+    function runFilter() {
+        const gQ = document.getElementById('groupFilter').value.toLowerCase().trim();
+        const vQ = document.getElementById('victimFilter').value.toLowerCase().trim();
+        const cQ = document.getElementById('countryFilter').value.toLowerCase().trim();
+        const aQ = document.getElementById('activityFilter').value.toLowerCase().trim();
+        const incU = document.getElementById('includeUnknown').checked;
+
+        filteredData = allVictims.filter(v => {
+            const vC = (v.country || "-").toLowerCase();
+            const vA = (v.activity || "-").toLowerCase();
+            if (!incU && (vC === "-" || vC === "inconnu" || vA === "-" || vA === "inconnu")) return false;
+            
+            return v.group_name.toLowerCase().includes(gQ) && 
+                   v.post_title.toLowerCase().includes(vQ) && 
+                   vC.includes(cQ) && 
+                   vA.includes(aQ);
+        });
+
+        filteredData.sort((a, b) => new Date(b.discovered) - new Date(a.discovered));
+        updateUI(gQ);
+    }
+
+    function updateUI(gQ) {
+        document.getElementById('count').innerText = filteredData.length;
+        const hasData = filteredData.length > 0;
+        document.getElementById('btnCsv').disabled = document.getElementById('btnMap').disabled = document.getElementById('btnCopy').disabled = !hasData;
+
+        // Tags de groupes
+        const gD = document.getElementById('groupFoundText');
+        const uG = [...new Set(filteredData.map(v => v.group_name))].sort().slice(0, 15);
+        gD.innerHTML = gQ !== "" ? uG.map(n => `<span class="group-tag ${n.toLowerCase() === gQ ? 'active' : ''}" onclick="selectGroup('${n}')">${n}</span>`).join('') : "";
+
+        if (hasData) {
+            const sD = [...filteredData].sort((a,b) => new Date(a.discovered) - new Date(b.discovered));
+            document.getElementById('firstDate').innerText = formatDate(sD[0].discovered);
+            document.getElementById('lastDate').innerText = formatDate(sD[sD.length-1].discovered);
+
+            const html = filteredData.slice(0, 1000).map(v => `
+                <tr>
+                    <td>${formatDate(v.discovered)}</td>
+                    <td>${v.group_name}</td>
+                    <td><strong>${v.post_title}</strong></td>
+                    <td>${v.country || '-'}</td>
+                    <td>${v.activity || '-'}</td>
+                </tr>
+            `).join('');
+            document.getElementById('fullVictimsBody').innerHTML = html;
+        }
+    }
+
+    function selectGroup(n) { document.getElementById('groupFilter').value = n; runFilter(); }
+
+    function copyTableToClipboard() {
+        let t = "Date\tGroupe\tVictime\tPays\tActivite\n";
+        filteredData.slice(0, 1500).forEach(v => {
+            t += `${formatDate(v.discovered)}\t${v.group_name}\t${v.post_title}\t${v.country || '-'}\t${v.activity || '-'}\n`;
+        });
+        navigator.clipboard.writeText(t).then(() => alert("Données copiées."));
+    }
+
+    function exportToCSV() {
+        let c = "\uFEFFDate;Groupe;Victime;Pays;Activite\n";
+        filteredData.forEach(v => {
+            c += `${formatDate(v.discovered)};${v.group_name};${v.post_title.replace(/;/g, ' ')};${v.country || '-'};${v.activity || '-'}\n`;
+        });
+        const b = new Blob([c], { type: 'text/csv;charset=utf-8;' });
+        const l = document.createElement("a");
+        l.href = URL.createObjectURL(b);
+        l.download = `Threat_Export.csv`;
+        l.click();
+    }
+
+    function openMapModal() {
+        const counts = {};
+        filteredData.forEach(v => {
+            if (v.country) {
+                const n = isoToMapChart[v.country.toUpperCase()] || v.country.replace(/\s+/g, '_');
+                counts[n] = (counts[n] || 0) + 1;
+            }
+        });
+        const low = [], med = [], high = [];
+        for (const [n, c] of Object.entries(counts)) {
+            if (c >= 100) high.push(n);
+            else if (c >= 10) med.push(n);
+            else low.push(n);
+        }
+        const cfg = { "groups": { "#fc4e2a": { "label": "< 10", "paths": low }, "#e31a1c": { "label": "10-100", "paths": med }, "#bd0026": { "label": "> 100", "paths": high } }, "title": "Threat Map", "page": "world", "v6": true, "legendStatus": "show" };
+        document.getElementById('mapJsonArea').value = JSON.stringify(cfg);
+        document.getElementById('mapModal').style.display = "block";
+    }
+
+    function closeMapModal() { document.getElementById('mapModal').style.display = "none"; }
+    function copyMapJson() { 
+        const a = document.getElementById('mapJsonArea'); 
+        a.select(); 
+        document.execCommand('copy'); 
+        alert("Code MapChart copié !"); 
+    }
+
+    document.querySelectorAll('input').forEach(i => i.addEventListener('input', runFilter));
+    document.getElementById('includeUnknown').addEventListener('change', runFilter);
+    fetchData();
+</script>
+</body>
+</html>
