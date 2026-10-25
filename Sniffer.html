@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="fr" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OSINT & Threat Intelligence Hub</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        cyber: {
+                            900: '#0a0e17',
+                            800: '#111827',
+                            700: '#1f2937',
+                            border: '#374151',
+                            accent: '#06b6d4',
+                            accentHover: '#0891b2',
+                            danger: '#ef4444',
+                            warning: '#f59e0b',
+                            success: '#10b981'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #111827;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #374151;
+            border-radius: 3px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #06b6d4;
+        }
+    </style>
+</head>
+<body class="bg-cyber-900 text-gray-100 min-h-screen font-sans antialiased flex flex-col">
+
+    <!-- Header / Navbar -->
+    <header class="bg-cyber-800 border-b border-cyber-border sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-shield-halved text-cyber-accent text-2xl"></i>
+                <h1 class="font-bold text-lg tracking-wider text-white">OSINT <span class="text-cyber-accent">&</span> Threat Intel Hub</h1>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button id="open-settings-btn" class="bg-cyber-700 hover:bg-cyber-border text-gray-200 px-3 py-1.5 rounded text-sm flex items-center space-x-2 border border-gray-600 transition">
+                    <i class="fa-solid fa-key text-cyber-accent"></i>
+                    <span>Clés API</span>
+                    <span id="api-badge" class="ml-1 px-1.5 py-0.5 text-xs rounded bg-gray-600 text-gray-300">0</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 py-6 flex-grow w-full space-y-6">
+
+        <!-- Input & Detection Card -->
+        <section class="bg-cyber-800 border border-cyber-border rounded-lg p-5 shadow-lg">
+            <div class="space-y-4">
+                <label class="block text-sm font-semibold text-gray-300">Entrée à analyser (Email, Domaine, IP ou URL)</label>
+                <div class="flex flex-col md:flex-row gap-3">
+                    <div class="relative flex-grow">
+                        <input type="text" id="target-input" placeholder="ex: test@example.com, example.com, 8.8.8.8, https://malicious-site.com" 
+                               class="w-full bg-cyber-900 border border-cyber-border rounded-lg px-4 py-3 text-white focus:outline-none focus:border-cyber-accent text-sm pr-10">
+                        <span id="detected-type-badge" class="absolute right-3 top-3 px-2 py-0.5 text-xs font-semibold rounded bg-gray-700 text-gray-300 hidden">
+                            Inconnu
+                        </span>
+                    </div>
+                    <button id="analyze-btn" class="bg-cyber-accent hover:bg-cyber-accentHover text-cyber-900 font-bold px-6 py-3 rounded-lg flex items-center justify-center space-x-2 transition">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                        <span>Lancer l'Analyse</span>
+                    </button>
+                </div>
+
+                <!-- Pivot Info Box -->
+                <div id="pivot-container" class="hidden bg-cyber-900/60 border border-gray-700 rounded-lg p-3 text-xs text-gray-300 flex flex-wrap gap-4 items-center justify-between">
+                    <div class="flex flex-wrap gap-4 items-center">
+                        <div class="font-bold text-cyber-accent flex items-center space-x-1">
+                            <i class="fa-solid fa-diagram-project"></i>
+                            <span>Pivots extraits :</span>
+                        </div>
+                        <div id="pivot-email" class="hidden"><span class="text-gray-400">Email:</span> <span class="font-mono text-white" id="pv-email-val"></span></div>
+                        <div id="pivot-domain" class="hidden"><span class="text-gray-400">Domaine:</span> <span class="font-mono text-white" id="pv-domain-val"></span></div>
+                        <div id="pivot-ip" class="hidden"><span class="text-gray-400">IPs résolues:</span> <span class="font-mono text-cyan-400" id="pv-ip-val">En cours...</span></div>
+                    </div>
+                    <!-- Wayback Save Action Button -->
+                    <div>
+                        <button id="wayback-save-btn" class="bg-amber-600/30 hover:bg-amber-600/55 text-amber-300 border border-amber-600/50 px-2.5 py-1 rounded text-xs flex items-center space-x-1 transition">
+                            <i class="fa-solid fa-floppy-disk"></i>
+                            <span>Sauvegarder dans Wayback Machine</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Live Investigation Dashboard -->
+        <section id="live-results-section" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 hidden">
+            <!-- Card 1: IP & Geo -->
+            <div class="bg-cyber-800 border border-cyber-border rounded-lg p-4 space-y-3">
+                <div class="flex justify-between items-center border-b border-cyber-border pb-2">
+                    <span class="font-semibold text-sm text-gray-200"><i class="fa-solid fa-network-wired text-cyber-accent mr-2"></i>Réseau & Géolocalisation</span>
+                    <span id="status-ipwhois" class="text-xs text-gray-500"><i class="fa-solid fa-spinner fa-spin"></i></span>
+                </div>
+                <div id="data-ipwhois" class="text-xs space-y-1 text-gray-300">
+                    <p class="text-gray-500">En attente de recherche...</p>
+                </div>
+            </div>
+
+            <!-- Card 2: DNS & Records -->
+            <div class="bg-cyber-800 border border-cyber-border rounded-lg p-4 space-y-3">
+                <div class="flex justify-between items-center border-b border-cyber-border pb-2">
+                    <span class="font-semibold text-sm text-gray-200"><i class="fa-solid fa-dns text-cyber-accent mr-2"></i>Enregistrements DNS</span>
+                    <span id="status-dns" class="text-xs text-gray-500"><i class="fa-solid fa-spinner fa-spin"></i></span>
+                </div>
+                <div id="data-dns" class="text-xs space-y-1 text-gray-300 custom-scrollbar max-h-36 overflow-y-auto">
+                    <p class="text-gray-500">En attente de recherche...</p>
+                </div>
+            </div>
+
+            <!-- Card 3: SSL Certificates -->
+            <div class="bg-cyber-800 border border-cyber-border rounded-lg p-4 space-y-3">
+                <div class="flex justify-between items-center border-b border-cyber-border pb-2">
+                    <span class="font-semibold text-sm text-gray-200"><i class="fa-solid fa-certificate text-cyber-accent mr-2"></i>Certificats SSL (Crt.sh)</span>
+                    <span id="status-crt" class="text-xs text-gray-500"><i class="fa-solid fa-spinner fa-spin"></i></span>
+                </div>
+                <div id="data-crt" class="text-xs space-y-1 text-gray-300 custom-scrollbar max-h-36 overflow-y-auto">
+                    <p class="text-gray-500">En attente de recherche...</p>
+                </div>
+            </div>
+
+            <!-- Card 4: Threat Intel APIs -->
+            <div class="bg-cyber-800 border border-cyber-border rounded-lg p-4 space-y-3">
+                <div class="flex justify-between items-center border-b border-cyber-border pb-2">
+                    <span class="font-semibold text-sm text-gray-200"><i class="fa-solid fa-shield-cat text-cyber-accent mr-2"></i>Réputation API</span>
+                </div>
+                <div id="data-apis" class="text-xs space-y-2 text-gray-300">
+                    <div><span class="text-gray-400">VirusTotal:</span> <span id="vt-res" class="font-mono text-gray-500">Non configuré</span></div>
+                    <div><span class="text-gray-400">AbuseIPDB:</span> <span id="abuse-res" class="font-mono text-gray-500">Non configuré</span></div>
+                    <div><span class="text-gray-400">Shodan:</span> <span id="shodan-res" class="font-mono text-gray-500">Non configuré</span></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- External Search Portals & Services -->
+        <section class="bg-cyber-800 border border-cyber-border rounded-lg p-5 space-y-4 shadow-lg">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-cyber-border pb-3">
+                <div>
+                    <h2 class="font-bold text-gray-100 flex items-center space-x-2">
+                        <i class="fa-solid fa-arrow-up-right-from-square text-cyber-accent"></i>
+                        <span>Services d'Investigation Externe</span>
+                    </h2>
+                    <p class="text-xs text-gray-400">
+                        <span class="inline-block w-2 h-2 rounded-full bg-emerald-500 mr-1"></span> URL pré-remplie en 1 clic &nbsp;|&nbsp; 
+                        <span class="inline-block w-2 h-2 rounded-full bg-amber-500 ml-2 mr-1"></span> Copier/Coller requis (automatisé au clic)
+                    </p>
+                </div>
+                <button id="open-all-btn" class="bg-cyber-700 hover:bg-cyber-border text-xs px-3 py-2 rounded text-gray-200 border border-gray-600 transition flex items-center space-x-2">
+                    <i class="fa-solid fa-arrow-up-right-dots"></i>
+                    <span>Ouvrir les services automatiques</span>
+                </button>
+            </div>
+
+            <div id="services-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                <!-- Services will be dynamically injected here -->
+            </div>
+        </section>
+
+        <!-- Notes & Report Generation -->
+        <section class="bg-cyber-800 border border-cyber-border rounded-lg p-5 space-y-4 shadow-lg">
+            <div class="flex justify-between items-center border-b border-cyber-border pb-3">
+                <h2 class="font-bold text-gray-100 flex items-center space-x-2">
+                    <i class="fa-solid fa-file-contract text-cyber-accent"></i>
+                    <span>Synthèse & Notes d'Investigation</span>
+                </h2>
+                <div class="flex space-x-2">
+                    <button id="generate-report-btn" class="bg-cyber-700 hover:bg-cyber-border text-xs px-3 py-1.5 rounded text-gray-200 border border-gray-600 transition">
+                        <i class="fa-solid fa-arrows-rotate mr-1"></i> Générer la synthèse
+                    </button>
+                    <button id="copy-report-btn" class="bg-cyber-accent hover:bg-cyber-accentHover text-cyber-900 font-bold text-xs px-3 py-1.5 rounded transition">
+                        <i class="fa-solid fa-copy mr-1"></i> Copier
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">Notes Manuelles :</label>
+                    <textarea id="manual-notes" rows="6" placeholder="Ajoutez vos observations, contextes ou informations d'analyse..."
+                              class="w-full bg-cyber-900 border border-cyber-border rounded p-3 text-xs text-gray-200 focus:outline-none focus:border-cyber-accent custom-scrollbar"></textarea>
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-400 mb-1">Synthèse Automatique (Markdown) :</label>
+                    <textarea id="report-output" readonly rows="6" placeholder="Cliquez sur 'Générer la synthèse'..."
+                              class="w-full bg-cyber-900 border border-cyber-border rounded p-3 text-xs text-cyber-accent font-mono focus:outline-none custom-scrollbar"></textarea>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modal Key Settings -->
+    <div id="settings-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden">
+        <div class="bg-cyber-800 border border-cyber-border rounded-lg w-full max-w-md p-6 space-y-4 shadow-2xl">
+            <div class="flex justify-between items-center border-b border-cyber-border pb-3">
+                <h3 class="font-bold text-gray-100 flex items-center space-x-2">
+                    <i class="fa-solid fa-key text-cyber-accent"></i>
+                    <span>Clés d'API (Sauvegarde Locale)</span>
+                </h3>
+                <button id="close-settings-btn" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <p class="text-xs text-gray-400">
+                Vos clés sont conservées directement dans le <b>localStorage</b> de votre navigateur. Aucune donnée n'est transmise à un serveur tierce.
+            </p>
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block font-semibold text-gray-300 mb-1">VirusTotal API Key</label>
+                    <input type="password" id="key-vt" class="w-full bg-cyber-900 border border-cyber-border rounded px-3 py-2 text-white focus:outline-none focus:border-cyber-accent">
+                </div>
+                <div>
+                    <label class="block font-semibold text-gray-300 mb-1">AbuseIPDB API Key</label>
+                    <input type="password" id="key-abuse" class="w-full bg-cyber-900 border border-cyber-border rounded px-3 py-2 text-white focus:outline-none focus:border-cyber-accent">
+                </div>
+                <div>
+                    <label class="block font-semibold text-gray-300 mb-1">Shodan API Key</label>
+                    <input type="password" id="key-shodan" class="w-full bg-cyber-900 border border-cyber-border rounded px-3 py-2 text-white focus:outline-none focus:border-cyber-accent">
+                </div>
+                <div>
+                    <label class="block font-semibold text-gray-300 mb-1">IPInfo Token (Optionnel)</label>
+                    <input type="password" id="key-ipinfo" class="w-full bg-cyber-900 border border-cyber-border rounded px-3 py-2 text-white focus:outline-none focus:border-cyber-accent">
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-2 pt-2">
+                <button id="save-keys-btn" class="bg-cyber-accent hover:bg-cyber-accentHover text-cyber-900 font-bold px-4 py-2 rounded text-xs transition">
+                    Enregistrer les clés
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- SERVICES LIST & CONFIG (type: 'auto' or 'manual') ---
+        const EXTERNAL_SERVICES = [
+            { 
+                name: "DNS History Records", 
+                icon: "fa-solid fa-clock-rotate-left", 
+                category: "DNS/Whois", 
+                type: "auto",
+                getUrl: (target, type, dom) => `https://dnshistory.org/dns-records/${dom || target}` 
+            },
+            { 
+                name: "DNS History Main", 
+                icon: "fa-solid fa-globe", 
+                category: "DNS/Whois", 
+                type: "auto",
+                getUrl: (target, type, dom) => `https://dnshistory.org/search?q=${dom || target}` 
+            },
+            { 
+                name: "DNSTwister (Typosquat)", 
+                icon: "fa-solid fa-font-awesome", 
+                category: "Phishing", 
+                type: "auto",
+                getUrl: (target, type, dom) => `https://dnstwister.report/search?q=${dom || target}` 
+            },
+            { 
+                name: "WhoisFreaks History", 
+                icon: "fa-solid fa-user-shield", 
+                category: "DNS/Whois", 
+                type: "auto",
+                getUrl: (target, type, dom) => `https://whoisfreaks.com/tools/whois/history/lookup/${dom || target}` 
+            },
+            { 
+                name: "Lookyloo Capture", 
+                icon: "fa-solid fa-eye", 
+                category: "Analysis", 
+                type: "manual",
+                getUrl: () => `https://lookyloo.circl.lu/` 
+            },
+            { 
+                name: "Wayback Machine Archive", 
+                icon: "fa-solid fa-box-archive", 
+                category: "Archive", 
+                type: "auto",
+                getUrl: (target, type, dom) => `https://web.archive.org/web/*/${dom || target}` 
+            },
+            { 
+                name: "VirusTotal Search", 
+                icon: "fa-solid fa-virus", 
+                category: "Reputation", 
+                type: "auto",
+                getUrl: (target) => `https://www.virustotal.com/gui/search/${target}` 
+            },
+            { 
+                name: "Hybrid Analysis", 
+                icon: "fa-solid fa-microchip", 
+                category: "Analysis", 
+                type: "auto",
+                getUrl: (target) => `https://www.hybrid-analysis.com/search?query=${target}` 
+            },
+            { 
+                name: "PhishTank", 
+                icon: "fa-solid fa-fish", 
+                category: "Phishing", 
+                type: "manual",
+                getUrl: () => `https://www.phishtank.com/` 
+            },
+            { 
+                name: "Kaspersky OpenTIP", 
+                icon: "fa-solid fa-shield-virus", 
+                category: "Reputation", 
+                type: "auto",
+                getUrl: (target) => `https://opentip.kaspersky.com/${target}` 
+            },
+            { 
+                name: "URLVoid", 
+                icon: "fa-solid fa-shield-cat", 
+                category: "Reputation", 
+                type: "auto",
+                getUrl: (target, type, dom) => `https://www.urlvoid.com/scan/${dom || target}/` 
+            },
+            { 
+                name: "Google SafeBrowsing Report", 
+                icon: "fa-brands fa-google", 
+                category: "Phishing", 
+                type: "manual",
+                getUrl: () => `https://safebrowsing.google.com/safebrowsing/report_phish/` 
+            }
+        ];
+
+        // --- GLOBAL STATE ---
+        let currentAnalysis = {
+            rawInput: "",
+            type: "unknown",
+            email: "",
+            domain: "",
+            ip: "",
+            ips: [],
+            dnsRecords: [],
+            sslCertCount: 0,
+            ipInfoData: null
+        };
+
+        // --- LOCAL STORAGE API KEYS MANAGEMENT ---
+        function getApiKeys() {
+            return {
+                vt: localStorage.getItem('osint_key_vt') || '',
+                abuse: localStorage.getItem('osint_key_abuse') || '',
+                shodan: localStorage.getItem('osint_key_shodan') || '',
+                ipinfo: localStorage.getItem('osint_key_ipinfo') || ''
+            };
+        }
+
+        function updateBadgeCount() {
+            const keys = getApiKeys();
+            const count = Object.values(keys).filter(k => k.trim() !== '').length;
+            document.getElementById('api-badge').innerText = count;
+        }
+
+        // Modal triggers
+        document.getElementById('open-settings-btn').addEventListener('click', () => {
+            const keys = getApiKeys();
+            document.getElementById('key-vt').value = keys.vt;
+            document.getElementById('key-abuse').value = keys.abuse;
+            document.getElementById('key-shodan').value = keys.shodan;
+            document.getElementById('key-ipinfo').value = keys.ipinfo;
+            document.getElementById('settings-modal').classList.remove('hidden');
+        });
+
+        document.getElementById('close-settings-btn').addEventListener('click', () => {
+            document.getElementById('settings-modal').classList.add('hidden');
+        });
+
+        document.getElementById('save-keys-btn').addEventListener('click', () => {
+            localStorage.setItem('osint_key_vt', document.getElementById('key-vt').value.trim());
+            localStorage.setItem('osint_key_abuse', document.getElementById('key-abuse').value.trim());
+            localStorage.setItem('osint_key_shodan', document.getElementById('key-shodan').value.trim());
+            localStorage.setItem('osint_key_ipinfo', document.getElementById('key-ipinfo').value.trim());
+            document.getElementById('settings-modal').classList.add('hidden');
+            updateBadgeCount();
+            alert("Clés d'API sauvegardées dans le navigateur !");
+        });
+
+        // --- INPUT PARSER & DETECTOR ---
+        function detectInputType(input) {
+            input = input.trim();
+            const emailRegex = /^[a-zA-Z0-9._%+-]+@([a-zA-Z0-9.-]+\.[a-zA-Z]{2,})$/;
+            const ipRegex = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/;
+            const domainRegex = /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+            if (emailRegex.test(input)) {
+                const parts = input.split('@');
+                return { type: 'email', email: input, domain: parts[1], ip: '' };
+            } else if (ipRegex.test(input)) {
+                return { type: 'ip', email: '', domain: '', ip: input };
+            } else {
+                let cleanDomain = input.replace(/^https?:\/\//, '').split('/')[0].split(':')[0];
+                if (domainRegex.test(cleanDomain)) {
+                    return { type: 'domain', email: '', domain: cleanDomain, ip: '' };
+                }
+            }
+            return { type: 'unknown', email: '', domain: '', ip: '' };
+        }
+
+        // Input Realtime Badge Update
+        document.getElementById('target-input').addEventListener('input', (e) => {
+            const parsed = detectInputType(e.target.value);
+            const badge = document.getElementById('detected-type-badge');
+            if (parsed.type !== 'unknown') {
+                badge.innerText = parsed.type.toUpperCase();
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        });
+
+        // --- MAIN ANALYSIS TRIGGER ---
+        document.getElementById('analyze-btn').addEventListener('click', startAnalysis);
+
+        async function startAnalysis() {
+            const rawVal = document.getElementById('target-input').value.trim();
+            if (!rawVal) return;
+
+            const parsed = detectInputType(rawVal);
+            currentAnalysis.rawInput = rawVal;
+            currentAnalysis.type = parsed.type;
+            currentAnalysis.email = parsed.email;
+            currentAnalysis.domain = parsed.domain;
+            currentAnalysis.ip = parsed.ip;
+            currentAnalysis.ips = parsed.ip ? [parsed.ip] : [];
+
+            // Update Pivot UI Box
+            const pivotContainer = document.getElementById('pivot-container');
+            pivotContainer.classList.remove('hidden');
+            
+            document.getElementById('pivot-email').classList.toggle('hidden', !parsed.email);
+            if(parsed.email) document.getElementById('pv-email-val').innerText = parsed.email;
+
+            document.getElementById('pivot-domain').classList.toggle('hidden', !parsed.domain);
+            if(parsed.domain) document.getElementById('pv-domain-val').innerText = parsed.domain;
+
+            document.getElementById('pivot-ip').classList.remove('hidden');
+            document.getElementById('pv-ip-val').innerText = parsed.ip || "Résolution en cours...";
+
+            // Unhide Live Results
+            document.getElementById('live-results-section').classList.remove('hidden');
+
+            // Render Services Grid
+            renderExternalServices();
+
+            // Execute Live Async Lookups
+            if (parsed.domain) {
+                await resolveDNS(parsed.domain);
+            }
+            
+            let ipToQuery = currentAnalysis.ip || (currentAnalysis.ips.length > 0 ? currentAnalysis.ips[0] : '');
+            if (ipToQuery) {
+                fetchIpInfo(ipToQuery);
+                fetchAbuseIPDB(ipToQuery);
+                fetchShodan(ipToQuery);
+            }
+
+            if (currentAnalysis.domain) {
+                fetchCrtSh(currentAnalysis.domain);
+                fetchVirusTotal(currentAnalysis.domain);
+            } else if (currentAnalysis.ip) {
+                fetchVirusTotal(currentAnalysis.ip);
+            }
+        }
+
+        // --- WAYBACK MACHINE SAVE ACTION ---
+        document.getElementById('wayback-save-btn').addEventListener('click', () => {
+            if (!currentAnalysis.rawInput) return;
+            let targetToSave = currentAnalysis.domain || currentAnalysis.rawInput;
+            if (!targetToSave.startsWith('http://') && !targetToSave.startsWith('https://') && !currentAnalysis.domain) {
+                targetToSave = 'https://' + targetToSave;
+            } else if (currentAnalysis.domain && !targetToSave.startsWith('http')) {
+                targetToSave = 'https://' + targetToSave;
+            }
+            const saveUrl = `https://web.archive.org/save/${targetToSave}`;
+            window.open(saveUrl, '_blank');
+        });
+
+        // --- ASYNC API FETCHERS ---
+        async function resolveDNS(domain) {
+            const statusEl = document.getElementById('status-dns');
+            const dataEl = document.getElementById('data-dns');
+            statusEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-cyber-accent"></i>';
+            dataEl.innerHTML = '';
+
+            try {
+                const res = await fetch(`https://cloudflare-dns.com/dns-query?name=${domain}&type=A`, {
+                    headers: { 'accept': 'application/dns-json' }
+                });
+                const json = await res.json();
+                
+                if (json.Answer && json.Answer.length > 0) {
+                    currentAnalysis.ips = json.Answer.filter(a => a.type === 1).map(a => a.data);
+                    document.getElementById('pv-ip-val').innerText = currentAnalysis.ips.join(', ');
+                    
+                    dataEl.innerHTML = currentAnalysis.ips.map(ip => `<div><span class="text-gray-400">A:</span> <span class="font-mono text-cyan-400">${ip}</span></div>`).join('');
+                } else {
+                    dataEl.innerHTML = '<span class="text-gray-500">Aucun enregistrement A trouvé</span>';
+                }
+                statusEl.innerHTML = '<i class="fa-solid fa-check text-cyber-success"></i>';
+            } catch (err) {
+                statusEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-cyber-danger"></i>';
+                dataEl.innerHTML = '<span class="text-cyber-danger">Erreur DNS</span>';
+            }
+        }
+
+        async function fetchIpInfo(ip) {
+            const statusEl = document.getElementById('status-ipwhois');
+            const dataEl = document.getElementById('data-ipwhois');
+            statusEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-cyber-accent"></i>';
+
+            try {
+                const keys = getApiKeys();
+                let url = `https://ipwho.is/${ip}`;
+                if(keys.ipinfo) url = `https://ipinfo.io/${ip}?token=${keys.ipinfo}`;
+
+                const res = await fetch(url);
+                const data = await res.json();
+                currentAnalysis.ipInfoData = data;
+
+                if (data.ip || data.query) {
+                    dataEl.innerHTML = `
+                        <div><span class="text-gray-400">IP:</span> ${data.ip || data.query}</div>
+                        <div><span class="text-gray-400">Pays:</span> ${data.country || data.country_name || 'N/A'}</div>
+                        <div><span class="text-gray-400">ISP/ASN:</span> ${data.connection?.isp || data.org || 'N/A'}</div>
+                    `;
+                    statusEl.innerHTML = '<i class="fa-solid fa-check text-cyber-success"></i>';
+                }
+            } catch (err) {
+                statusEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation text-cyber-danger"></i>';
+                dataEl.innerHTML = '<span class="text-cyber-danger">Échec géolocalisation</span>';
+            }
+        }
+
+        async function fetchCrtSh(domain) {
+            const statusEl = document.getElementById('status-crt');
+            const dataEl = document.getElementById('data-crt');
+            statusEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-cyber-accent"></i>';
+
+            try {
+                const res = await fetch(`https://crt.sh/?q=%.${domain}&output=json`);
+                const data = await res.json();
+                
+                if (data && data.length > 0) {
+                    currentAnalysis.sslCertCount = data.length;
+                    const subdomains = [...new Set(data.map(item => item.name_value.split('\n')[0]))].slice(0, 5);
+                    dataEl.innerHTML = subdomains.map(sub => `<div class="truncate text-gray-300">• ${sub}</div>`).join('');
+                } else {
+                    dataEl.innerHTML = '<span class="text-gray-500">Aucun certificat trouvé</span>';
+                }
+                statusEl.innerHTML = '<i class="fa-solid fa-check text-cyber-success"></i>';
+            } catch (err) {
+                statusEl.innerHTML = '<i class="fa-solid fa-minus text-gray-500"></i>';
+                dataEl.innerHTML = '<span class="text-gray-500">Crt.sh indisponible</span>';
+            }
+        }
+
+        async function fetchVirusTotal(target) {
+            const keys = getApiKeys();
+            const el = document.getElementById('vt-res');
+            if (!keys.vt) { el.innerText = "Pas de clé API"; return; }
+            el.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+            try {
+                const res = await fetch(`https://www.virustotal.com/api/v3/search?query=${target}`, {
+                    headers: { 'x-apikey': keys.vt }
+                });
+                const json = await res.json();
+                el.innerText = "Interroge VT (OK)";
+            } catch (e) {
+                el.innerText = "Erreur requete CORS/Key";
+            }
+        }
+
+        async function fetchAbuseIPDB(ip) {
+            const keys = getApiKeys();
+            const el = document.getElementById('abuse-res');
+            if (!keys.abuse) { el.innerText = "Pas de clé API"; return; }
+            el.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+            try {
+                const res = await fetch(`https://api.abuseipdb.com/api/v2/check?ipAddress=${ip}`, {
+                    headers: { 'Key': keys.abuse, 'Accept': 'application/json' }
+                });
+                const json = await res.json();
+                if(json.data) {
+                    el.innerText = `Score d'abus: ${json.data.abuseConfidenceScore}%`;
+                }
+            } catch (e) {
+                el.innerText = "Erreur API";
+            }
+        }
+
+        async function fetchShodan(ip) {
+            const keys = getApiKeys();
+            const el = document.getElementById('shodan-res');
+            if (!keys.shodan) { el.innerText = "Pas de clé API"; return; }
+            el.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+
+            try {
+                const res = await fetch(`https://api.shodan.io/shodan/host/${ip}?key=${keys.shodan}`);
+                const json = await res.json();
+                if(json.ports) {
+                    el.innerText = `Ports ouverts: ${json.ports.join(', ')}`;
+                }
+            } catch (e) {
+                el.innerText = "Erreur Shodan";
+            }
+        }
+
+        // --- RENDER EXTERNAL SERVICES WITH DIFFERENTIATION ---
+        function renderExternalServices() {
+            const container = document.getElementById('services-grid');
+            container.innerHTML = '';
+
+            EXTERNAL_SERVICES.forEach(svc => {
+                const url = svc.getUrl(currentAnalysis.rawInput, currentAnalysis.type, currentAnalysis.domain, currentAnalysis.ip);
+                const isAuto = svc.type === 'auto';
+                
+                const card = document.createElement('div');
+                card.className = "bg-cyber-900 border border-cyber-border rounded-lg p-3 hover:border-cyber-accent transition flex items-center justify-between";
+                
+                let badgeHtml = isAuto 
+                    ? `<span class="inline-flex items-center text-[10px] text-emerald-400 bg-emerald-950/50 border border-emerald-800/50 px-1.5 py-0.5 rounded" title="URL automatiquement pré-remplie"><i class="fa-solid fa-bolt mr-1"></i> Auto</span>`
+                    : `<span class="inline-flex items-center text-[10px] text-amber-400 bg-amber-950/50 border border-amber-800/50 px-1.5 py-0.5 rounded" title="Nécessite un copier/coller (copie auto au clic)"><i class="fa-solid fa-clipboard mr-1"></i> Copier/Coller</span>`;
+
+                card.innerHTML = `
+                    <div class="flex items-center space-x-3 overflow-hidden">
+                        <i class="${svc.icon} text-cyber-accent text-lg flex-shrink-0"></i>
+                        <div class="truncate">
+                            <div class="font-semibold text-xs text-gray-200 truncate">${svc.name}</div>
+                            <div class="flex items-center space-x-2 mt-0.5">
+                                <span class="text-[10px] text-gray-500">${svc.category}</span>
+                                ${badgeHtml}
+                            </div>
+                        </div>
+                    </div>
+                    <button data-url="${url}" data-manual="${!isAuto}" data-val="${currentAnalysis.domain || currentAnalysis.rawInput}" class="open-svc-btn bg-cyber-700 hover:bg-cyber-accent hover:text-cyber-900 text-gray-300 px-2.5 py-1 rounded text-xs transition flex-shrink-0 ml-2">
+                        Ouvrir <i class="fa-solid fa-arrow-up-right-from-square ml-1"></i>
+                    </button>
+                `;
+                container.appendChild(card);
+            });
+
+            // Bind click events for smart copy & open
+            document.querySelectorAll('.open-svc-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const targetUrl = e.currentTarget.getAttribute('data-url');
+                    const isManual = e.currentTarget.getAttribute('data-manual') === 'true';
+                    const valToCopy = e.currentTarget.getAttribute('data-val');
+
+                    if (isManual && valToCopy) {
+                        navigator.clipboard.writeText(valToCopy).then(() => {
+                            // Feedback visuel temporaire
+                            const originalHTML = e.currentTarget.innerHTML;
+                            e.currentTarget.innerHTML = '<i class="fa-solid fa-check"></i> Copié !';
+                            setTimeout(() => { e.currentTarget.innerHTML = originalHTML; }, 1500);
+                        });
+                    }
+                    window.open(targetUrl, '_blank');
+                });
+            });
+        }
+
+        // Open All Automatic Tabs
+        document.getElementById('open-all-btn').addEventListener('click', () => {
+            EXTERNAL_SERVICES.filter(s => s.type === 'auto').forEach(svc => {
+                const url = svc.getUrl(currentAnalysis.rawInput, currentAnalysis.type, currentAnalysis.domain, currentAnalysis.ip);
+                window.open(url, '_blank');
+            });
+        });
+
+        // --- REPORT GENERATOR ---
+        document.getElementById('generate-report-btn').addEventListener('click', () => {
+            const notes = document.getElementById('manual-notes').value;
+            let report = `### RAPPORT D'INVESTIGATION OSINT\n`;
+            report += `- Cible initiale: ${currentAnalysis.rawInput} (Type: ${currentAnalysis.type})\n`;
+            if (currentAnalysis.email) report += `- Email parent: ${currentAnalysis.email}\n`;
+            if (currentAnalysis.domain) report += `- Domaine d'analyse: ${currentAnalysis.domain}\n`;
+            if (currentAnalysis.ips.length > 0) report += `- IP(s) résolue(s): ${currentAnalysis.ips.join(', ')}\n`;
+            
+            if (currentAnalysis.ipInfoData) {
+                report += `- Geo/ASN: ${currentAnalysis.ipInfoData.country || ''} | ${currentAnalysis.ipInfoData.org || ''}\n`;
+            }
+            if (currentAnalysis.sslCertCount) {
+                report += `- Certificats SSL connus: ${currentAnalysis.sslCertCount}\n`;
+            }
+
+            if (notes.trim()) {
+                report += `\n### NOTES MANUELLES :\n${notes}\n`;
+            }
+
+            document.getElementById('report-output').value = report;
+        });
+
+        // Copy Report
+        document.getElementById('copy-report-btn').addEventListener('click', () => {
+            const output = document.getElementById('report-output');
+            output.select();
+            document.execCommand('copy');
+            alert("Rapport copié dans le presse-papier !");
+        });
+
+        // Initialize Api Badge on load
+        updateBadgeCount();
+    </script>
+</body>
+</html>
