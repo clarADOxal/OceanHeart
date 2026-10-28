@@ -1,0 +1,185 @@
+<html>
+<head>
+<title>Telegram v0.4.7</title>
+<script>
+
+// Fonction principale pour envoyer un message
+function sendmessage() {
+    if (document.f1.message.value === "" || document.f1.botresult.value === "" || document.f1.chatid.value === "") {
+        window.alert('Empty message And/Or Bot not selected And/Or Channel empty');
+        return;
+    }
+    var apiUrl = "https://api.telegram.org/bot" + document.f1.botresult.value + "/sendMessage?chat_id=" + document.f1.chatidresult.value + "&text=" + document.f1.message.value;
+//    var apiUrl = "https://api.telegram.org/bot" + document.f1.botresult.value + "/sendMessage?chat_id=-100" + document.f1.chatidresult.value + "&text=" + document.f1.message.value;
+  window.alert(apiUrl);
+    sendrequest(apiUrl, function(response) {
+        if (response.ok) {
+            document.getElementById('result').innerHTML = "<a href='" + apiUrl + "' target='_blank'>SendMessage</a>";
+            document.getElementById('resultdirect').innerText = JSON.stringify(response.result, null, 2);
+        } else {
+            document.getElementById('result').innerText = 'Error: ' + response.description;
+        }
+    });
+}
+
+// Fonction de requête avec callback
+function sendrequest(url, callback) {
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', url, true);
+
+    xhr.onreadystatechange = function() {
+        if (xhr.readyState === 4) {
+            if (xhr.status === 200) {
+                var data = JSON.parse(xhr.responseText);
+                callback(data); // Appel du callback avec les données
+            } else {
+                callback({ ok: false, description: 'Error fetching data from Telegram API: ' + xhr.statusText });
+            }
+        }
+    };
+    xhr.send(null);
+}
+
+// Récupère les informations sur le bot
+function getBotInfo(event) {
+    if (document.f1.botresult.value === "") {
+        window.alert("No bot selected");
+    } else {
+        event.preventDefault();
+        var apiUrl = "https://api.telegram.org/bot" + document.f1.botresult.value + "/getMe";
+        
+        sendrequest(apiUrl, function(response) {
+            if (response.ok) {
+                document.getElementById('result').innerHTML = "Lien to Check : <a href='" + apiUrl + "' target='_blank'>GetMe</a>";
+                document.getElementById('resultdirect').innerText = JSON.stringify(response.result, null, 2);
+            } else {
+                document.getElementById('resultdirect').innerText = 'Error: ' + response.description;
+            }
+        });
+    }
+}
+
+// Récupère les mises à jour du bot
+function getupdates() {
+    if (document.f1.botresult.value === "") {
+        window.alert("No bot selected");
+    } else {
+        event.preventDefault();
+        var apiUrl = "https://api.telegram.org/bot" + document.f1.botresult.value + "/getupdates";
+        
+        sendrequest(apiUrl, function(response) {
+            if (response.ok) {
+                document.getElementById('result').innerHTML = "Lien to Check : <a href='" + apiUrl + "' target='_blank'>GetUpdates</a>";
+                document.getElementById('resultdirect').innerText = JSON.stringify(response.result, null, 2);
+            } else {
+                document.getElementById('resultdirect').innerText = 'Error: ' + response.description;
+            }
+        });
+    }
+}
+
+// Récupère les informations d'un chat
+function GetChat() {
+    if (document.f1.botresult.value === "" || document.f1.chatid.value === "") {
+        window.alert("No bot selected or ChatId Selected");
+    } else {
+        event.preventDefault();
+        var apiUrl = "https://api.telegram.org/bot" + document.f1.botresult.value + "/getChat?chat_id=" + document.f1.chatidresult.value;
+        
+        sendrequest(apiUrl, function(response) {
+            if (response.ok) {
+                document.getElementById('result').innerHTML = "Lien to Check : <a href='" + apiUrl + "' target='_blank'>CHAT</a>";
+                document.getElementById('resultdirect').innerText = JSON.stringify(response.result, null, 2);
+            } else {
+                document.getElementById('resultdirect').innerText = 'Error: ' + response.description;
+            }
+        });
+    }
+}
+
+// Fonction pour récupérer l'image de profil d'un chat
+function GetChatPicture() {
+    if (document.f1.botresult.value === "" || document.f1.chatid.value === "") {
+        window.alert("No bot selected or ChatId Selected");
+        return;
+    }
+
+    var apiUrl = "https://api.telegram.org/bot" + document.f1.botresult.value + "/getChat?chat_id=" + document.f1.chatidresult.value;
+
+    // Appel à sendrequest pour récupérer les informations du chat
+    sendrequest(apiUrl, function(response) {
+        if (response.ok) {
+            // Vérifie si le champ `big_file_id` est présent
+            if (response.result.photo && response.result.photo.big_file_id) {
+                var fileId = response.result.photo.big_file_id;
+
+                // Appel pour obtenir le chemin du fichier via le file_id
+                var getFileUrl = "https://api.telegram.org/bot" + document.f1.botresult.value + "/getFile?file_id=" + fileId;
+
+                // Nouvelle requête pour obtenir le chemin de l'image
+                sendrequest(getFileUrl, function(fileResponse) {
+                    if (fileResponse.ok) {
+                        var filePath = fileResponse.result.file_path;
+
+                        // Construction du lien direct vers l'image
+                        var imageUrl = "https://api.telegram.org/file/bot" + document.f1.botresult.value + "/" + filePath;
+
+                        // Affiche le lien de l'image dans le résultat HTML
+                        document.getElementById('result').innerHTML = "<a href='" + imageUrl + "' target='_blank'>Voir l'image de profil</a>";
+			document.getElementById('result').innerHTML = "<img src='"+imageUrl+"' width='200' height='200'>";
+                    } else {
+                        document.getElementById('result').innerText = 'Erreur lors de la récupération du chemin de l\'image : ' + fileResponse.description;
+                    }
+                });
+            } else {
+                document.getElementById('result').innerText = 'Aucune image de profil trouvée pour ce chat.';
+            }
+        } else {
+            document.getElementById('result').innerText = 'Erreur lors de la récupération des informations du chat : ' + response.description;
+        }
+    });
+}
+
+</script>
+</head>
+
+<body>
+<form name="f1">
+    <fieldset>
+        <legend>Telegram v0.4.5</legend>
+
+        <select name="botnb" onclick="document.f1.botresult.value=this.value">
+            <option value="1234567890:AABcDEFgHijK1LmNopqRStu2VWxyZABCde3">ie1</option>            
+            <option value=""></option>
+	          <option value=""></option>
+
+        </select>
+
+        BOT <input type="text" name="botresult"><br>
+
+        <select name="chatid" onclick="document.f1.chatidresult.value=this.value">
+            <option value="1234567890">ie Groupe ou Canal
+          	<option value=""></option>
+	          <option value=""></option>
+        </select>
+
+	<input type="button" value ='-100' onclick=document.f1.chatidresult.value="-100"+document.f1.chatidresult.value;>
+        CHATID <input type="text" name="chatidresult"><br>
+        Message : <input type="text" name="message"><br>
+        GetMe : <input type="button" value="GetMe" onclick="getBotInfo(event);"><br>
+        GetUpdates : <input type="button" value="GetUpdate" onclick="getupdates();"><br>
+        Sendmessage : <input type="button" value="SendMessage" onclick="sendmessage();"><br>
+        GetChat : <input type="button" value="GetChat" onclick="GetChat();">(Groupe/ Not Canal)<br>
+        GetChatPicture : <input type="button" value="GetChatPicture" onclick="GetChatPicture();">(Groupe/ Not Canal)<br>
+        <hr>
+    </fieldset>
+
+    <hr>
+    <div id="result"></div>
+    <hr>
+</form>
+
+<pre id="resultdirect"></pre>
+
+</body>
+</html>
